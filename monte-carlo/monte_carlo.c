@@ -10,20 +10,26 @@ double monte_carlo(double *xs, double *ys, int num_points, int mpi_rank, int mpi
   // TODO: Parallelize the code using mpi_world_size processes (1 process per
   // node.
   // In total, (mpi_world_size * threads_per_process) threads will collaborate
-  // to compute pi.
+  // to compute the Riemann sum.
 
-  if (mpi_rank == 0) {
-    for (int i = 0; i < num_points; i++) {
+  MPI_Bcast(xs, num_points, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(ys, num_points, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+  #pragma omp parallel num_threads(threads_per_process) shared(xs, ys)
+  {
+    #pragma omp for reduction(+:count)
+    for (int i = mpi_rank; i < num_points; i += mpi_world_size) {
       double x = xs[i];
       double y = ys[i];
 
-      if (x*x + y*y <= 1)
-        count++;
+      if (x * x + y * y <= 1) count++;
     }
   }
 
+  int count_sum = 0;
+  MPI_Reduce(&count, &count_sum, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
   // Rank 0 should return the estimated PI value
   // Other processes can return any value (don't care)
-  return (double) 4 * count / num_points;
+  return (double) 4 * count_sum / num_points;
 }
