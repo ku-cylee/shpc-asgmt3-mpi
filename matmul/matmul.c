@@ -17,7 +17,6 @@ void matmul(float *A, float *B, float *C, int M, int N, int K,
   MPI_Bcast(B, K * N, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
   for (int i = M / mpi_world_size * mpi_rank; i < M / mpi_world_size * (mpi_rank + 1); i++) {
-    // printf("%d, %d\n", mpi_rank, i);
     for (int j = 0; j < N; j++) {
       float sum = 0;
       for (int k = 0; k < K; k++) sum += A[i * K + k] * B[k * N + j];
