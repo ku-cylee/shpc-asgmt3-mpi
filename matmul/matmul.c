@@ -16,15 +16,20 @@ void matmul(float *A, float *B, float *C, int M, int N, int K,
   //   0, MPI_COMM_WORLD);
   MPI_Bcast(A, M * K, MPI_FLOAT, 0, MPI_COMM_WORLD);
   MPI_Bcast(B, K * N, MPI_FLOAT, 0, MPI_COMM_WORLD);
-
-  for (int i = M / mpi_world_size * mpi_rank; i < M / mpi_world_size * (mpi_rank + 1); i++) {
-    #pragma omp parallel num_threads(threads_per_process) shared(A, B, i, K, N)
-    {
-      #pragma omp for
-      for (int j = 0; j < N; j++) {
-        float sum = 0;
-        for (int k = 0; k < K; k++) sum += A[i * K + k] * B[k * N + j];
-        C[i * N + j] = sum;
+  
+  int j;
+  #pragma omp parallel num_threads(threads_per_process) shared(C, j)
+  {
+    #pragma omp for
+    for (j = 0; j < N; j++) {
+      for (int k = 0; k < K; k += 16) {
+        float B_seg[16] = { 0.0f };
+        for (int kk = 0; kk < 16; kk++) B_seg[kk] = B[(k + kk) * N + j];
+        for (int i = M / mpi_world_size * mpi_rank; i < M / mpi_world_size * (mpi_rank + 1); i++) {
+          float sum = 0.0f;
+          for (int kk = 0; kk < 16; kk++) sum += A[i * K + k + kk] * B_seg[kk];
+          C[i * N + j] += sum;
+        }
       }
     }
   }
