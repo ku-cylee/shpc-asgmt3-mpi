@@ -36,32 +36,18 @@ void matmul(float *A, float *B, float *C, int M, int N, int K,
     }
   }
 
-  __m512 *C_vecs = (__m512 *)aligned_alloc(32, M_per_rank * N * sizeof(__m512));
-  for (i = 0; i < M_per_rank * N; i++) C_vecs[i] = _mm512_setzero_ps();
-  
-  #pragma omp parallel num_threads(threads_per_process) shared(C_vecs, j)
+  #pragma omp parallel num_threads(threads_per_process) shared(j)
   {
     #pragma omp for private(i)
     for (j = 0; j < N; j++) {
-      for (int k = 0; k < K / 16; k++) {
-        __m512 B_vec = B_vecs[k * N + j];
-        for (i = 0; i < M_per_rank; i++) {
+      for (i = 0; i < M_per_rank; i++) {
+        __m512 C_vec = _mm512_setzero_ps();
+        for (int k = 0; k < K / 16; k++) {
           __m512 A_vec = A_vecs[i * K / 16 + k];
-          int idx = i * N + j;
-          C_vecs[idx] = _mm512_fmadd_ps(A_vec, B_vec, C_vecs[idx]);
+          __m512 B_vec = B_vecs[k * N + j];
+          C_vec = _mm512_fmadd_ps(A_vec, B_vec, C_vec);
         }
-      }
-    }
-  }
-
-  #pragma omp parallel num_threads(threads_per_process) shared(C, i)
-  {
-    #pragma omp for private(j)
-    for (i = 0; i < M_per_rank; i++) {
-      for (j = 0; j < N; j++) {
-        float C_arr[16] __attribute__((aligned(32)));
-        _mm512_store_ps(C_arr, C_vecs[i * N + j]);
-        C[(i + M_start) * N + j] = _mm512_reduce_add_ps(C_vecs[i * N + j]);
+        C[(i + M_start) * N + j] = _mm512_reduce_add_ps(C_vec);
       }
     }
   }
