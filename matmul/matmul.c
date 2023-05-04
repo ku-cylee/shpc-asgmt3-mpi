@@ -22,19 +22,31 @@ void matmul(float *A, float *B, float *C, int M, int N, int K,
   MPI_Bcast(A, M * K, MPI_FLOAT, 0, MPI_COMM_WORLD);
   MPI_Bcast(B, K * N, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
+  __m512 *A_vecs = (__m512 *)aligned_alloc(32, M_per_rank * K / 16 * sizeof(__m512));
+  for (i = 0; i < M_per_rank * K / 16; i++) {
+    A_vecs[i] = _mm512_load_ps(&A[M_start * K + i * 16]);
+  }
+
+  __m512 *B_vecs = (__m512 *)aligned_alloc(32, K * N / 16 * sizeof(__m512));
+  for (j = 0; j < N; j++) {
+    for (int k = 0; k < K / 16; k++) {
+      float seg[16];
+      for (int t = 0; t < 16; t++) seg[t] = B[(k * 16 + t) * N + j];
+      B_vecs[k * N + j] = _mm512_load_ps(seg);
+    }
+  }
+
   __m512 *C_vecs = (__m512 *)aligned_alloc(32, M_per_rank * N * sizeof(__m512));
-  for (int i = 0; i < M_per_rank * N; i++) C_vecs[i] = _mm512_setzero_ps();
+  for (i = 0; i < M_per_rank * N; i++) C_vecs[i] = _mm512_setzero_ps();
   
   #pragma omp parallel num_threads(threads_per_process) shared(C_vecs, j)
   {
     #pragma omp for private(i)
     for (j = 0; j < N; j++) {
-      for (int k = 0; k < K; k += 16) {
-        float B_seg[16];
-        for (int kk = 0; kk < 16; kk++) B_seg[kk] = B[(k + kk) * N + j];
-        __m512 B_vec = _mm512_load_ps(B_seg);
-        for (int i = 0; i < M_per_rank; i++) {
-          __m512 A_vec = _mm512_load_ps(&A[(i + M_start) * K + k]);
+      for (int k = 0; k < K / 16; k++) {
+        __m512 B_vec = B_vecs[k * N + j];
+        for (i = 0; i < M_per_rank; i++) {
+          __m512 A_vec = A_vecs[i * K / 16 + k];
           int idx = i * N + j;
           C_vecs[idx] = _mm512_fmadd_ps(A_vec, B_vec, C_vecs[idx]);
         }
