@@ -23,12 +23,16 @@ void matmul(float *A, float *B, float *C, int M, int N, int K,
     #pragma omp for
     for (j = 0; j < N; j++) {
       for (int k = 0; k < K; k += 16) {
-        float B_seg[16] = { 0.0f };
+        float B_seg[16];
         for (int kk = 0; kk < 16; kk++) B_seg[kk] = B[(k + kk) * N + j];
+        __m512 B_vec = _mm512_load_ps(B_seg);
         for (int i = M / mpi_world_size * mpi_rank; i < M / mpi_world_size * (mpi_rank + 1); i++) {
-          float sum = 0.0f;
-          for (int kk = 0; kk < 16; kk++) sum += A[i * K + k + kk] * B_seg[kk];
-          C[i * N + j] += sum;
+          __m512 sum_vec = _mm512_setzero_ps();
+          __m512 A_vec = _mm512_load_ps(&A[i * K + k]);
+          sum_vec = _mm512_fmadd_ps(A_vec, B_vec, sum_vec);
+
+          float *sum_arr = (float *)&sum_vec;
+          for (int kk = 0; kk < 16; kk++) C[i * N + j] += sum_arr[kk];
         }
       }
     }
