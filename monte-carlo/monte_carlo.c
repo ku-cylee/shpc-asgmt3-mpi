@@ -15,7 +15,7 @@ double monte_carlo(double *xs, double *ys, int num_points, int mpi_rank, int mpi
   MPI_Bcast(xs, num_points, MPI_DOUBLE, 0, MPI_COMM_WORLD);
   MPI_Bcast(ys, num_points, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-  #pragma omp parallel num_threads(threads_per_process) shared(xs, ys)
+  #pragma omp parallel num_threads(threads_per_process)
   {
     #pragma omp for reduction(+:count)
     for (int i = mpi_rank; i < num_points; i += mpi_world_size) {
