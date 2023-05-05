@@ -60,3 +60,5 @@ dkms.conf
 .vscode/
 monte-carlo/main
 matmul/main
+fonts/
+report.tex
