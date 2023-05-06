@@ -19,11 +19,10 @@ void matmul(float *A, float *B, float *C, int M, int N, int K,
   int M_start = M_per_rank * mpi_rank;
   int VEC_K = K / VECTOR_SIZE;
 
-  // MPI_Scatter(
-  //   A, M * K / mpi_world_size, MPI_FLOAT,
-  //   &A[M * K / mpi_world_size * mpi_rank], M * K / mpi_world_size, MPI_FLOAT,
-  //   0, MPI_COMM_WORLD);
-  MPI_Bcast(A, M * K, MPI_FLOAT, 0, MPI_COMM_WORLD);
+  MPI_Scatter(
+    A, M * K / mpi_world_size, MPI_FLOAT,
+    &A[M * K / mpi_world_size * mpi_rank], M * K / mpi_world_size, MPI_FLOAT,
+    0, MPI_COMM_WORLD);
   MPI_Bcast(B, K * N, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
   __m512 *A_vecs = (__m512 *)aligned_alloc(32, M_per_rank * VEC_K * sizeof(__m512));
