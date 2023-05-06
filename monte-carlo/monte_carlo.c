@@ -26,10 +26,10 @@ double monte_carlo(double *xs, double *ys, int num_points, int mpi_rank, int mpi
     }
   }
 
-  int count_sum = 0;
-  MPI_Reduce(&count, &count_sum, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+  int total_count = 0;
+  MPI_Reduce(&count, &total_count, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
   // Rank 0 should return the estimated PI value
   // Other processes can return any value (don't care)
-  return (double) 4 * count_sum / num_points;
+  return (double) 4 * total_count / num_points;
 }
